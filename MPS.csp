@@ -1,0 +1,66 @@
+﻿//System variables & constants
+#include "SystemVar.csp";
+#include "SystemConst.csp";
+
+//Supplied inputs
+#include "mail1.csp";
+
+/**Initialization**/
+
+InitBatch() = initBatch1{batch = 1;} -> InitMail()
+			[] initBatch2{batch = 2;} -> InitMail()
+			[] initBatch3{batch = 3;} -> InitMail()
+			[] initBatch4{batch = 4;} -> InitMail()
+			[] initBatch5{batch = 5;} -> InitMail();
+			
+InitMail() = initProhibited{prohibited = YES;} -> MailChecker()
+		[] initPostageSuff{prohibited = NO; postageReq = YES; postagePaid = YES;} -> MailChecker()
+		[] initPostageInsuff{prohibited = NO; postageReq = YES; postagePaid = NO;} -> MailChecker()
+		[] initPostageFree{prohibited = NO; postageReq = NO;} -> MailChecker();
+		
+
+//InitCfc() = initBadMailStd1{envStdSize = NO; envStdColor = NO;} -> Input()
+//          [] initBadMailStd2{envStdSize = NO; envStdColor = YES;} -> Input()
+//          [] initBadMailStd3{envStdSize = YES; envStdColor = NO;} -> Input()
+//          [] initGoodMailStd{envStdSize = YES; envStdColor = YES;} -> Input();
+				
+/**End of initialization**/
+
+
+/**Read supplied inputs**/
+Input() = {batch = MAIL_BATCH; prohibited = PROHIBITED_ITEM; postageReq = POSTAGE_REQ; postagePaid = POSTAGE_SUFF;}->BatchChecker();
+/**End of reading inputs**/
+
+//------------START PROCESSING------------//
+
+/**Stage 1: Check batch number and determine waiting time**/
+BatchChecker() = onhold{processDur = processDur + MAIL_BATCH - 1}->MailChecker();
+/**End of Stage 1**/
+
+/**Stage 2: Mail scanning for prohibited items and postage fees**/
+MailChecker() = [prohibited == YES]unsafeMail{mailDone = 0} -> Skip
+			    [] [prohibited == NO && postageReq == YES && postagePaid == YES]safe_paid_mail{processDur = processDur + PROCESS;} -> MpsExit()
+				[] [prohibited == NO && postageReq == YES && postagePaid == NO]safe_unpaid_mail{processDur = processDur + PROCESS + DELAY;} -> MpsExit()
+				[] [prohibited  == NO  && postageReq == NO]safe_prepaid_mail{processDur = processDur + PROCESS;} -> MpsExit(); 
+/**End of Stage 2**/
+
+MpsExit() = mail_out{mailDone = 1;} -> Skip;
+
+MpsStart() = Input();
+//------------END PROCESSING------------//
+
+
+//------------START ASSERTIONS------------//
+#assert Input() deadlockfree;
+#assert InitBatch() deadlockfree;
+#assert InitMail() deadlockfree;
+//#assert InitCfc deadlockfree;
+#assert MailChecker deadlockfree;
+#assert BatchChecker deadlockfree;
+//#assert MPS deadlockfree;
+
+#define mail1_goal (mailDone == 0);
+#assert MpsStart reaches mail1_goal with min(processDur);
+#assert MpsStart |= mail1_goal;
+
+//------------END OF ASSERTIONS------------//

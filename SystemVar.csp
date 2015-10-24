@@ -1,0 +1,15 @@
+﻿/**System variables**/
+var batch;
+var prohibited;
+var postageReq;
+var postagePaid;
+var envStdColor;
+var envStdSize;
+var addr;
+var processDur = 0; //in hours
+var onHold;
+var goalMet; //0 for NO and 1 for YES
+var retFromBcs;
+var idTag;
+var mailDone = 0;
+/**End of System variables**/
