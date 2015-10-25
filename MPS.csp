@@ -63,9 +63,6 @@ MpsExit() = [processDur <= BATCH5_GOAL]out_mps_punctual{batch = processDur - 4; 
 			[] [processDur > BATCH5_GOAL]hold_mps_late{batch = processDur - 4; mailDone = 1; mailOut = 0;} -> Skip;
 
 MpsStart() = InitMail();
-
-MPS() = InitMail() ||| InitBatch() ||| BatchWait() ||| MailChecker() 
-			||| Cfc() ||| Ocr() ||| Bcs() ||| Dbs() ||| MpsExit();
 //------------END PROCESSING------------//
 
 
