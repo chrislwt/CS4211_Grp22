@@ -6,12 +6,16 @@ var postagePaid;
 var envStdColor;
 var envStdSize;
 var missedTag;
+var missedBarcode;
 var addr;
 var processDur = 0; //in hours
 var onHold;
 var goalMet; //0 for NO and 1 for YES
 var retFromBcs;
+var retFromDbs;
 var skipOcr;
 var idTag;
+var barcode;
 var mailDone = 0;
+var mailOut = 0;
 /**End of System variables**/

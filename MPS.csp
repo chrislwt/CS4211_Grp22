@@ -1,82 +1,91 @@
-﻿//System variables & constants
+﻿/**System variables & constants**/
 #include "SystemVar.csp";
 #include "SystemConst.csp";
 
-//Supplied inputs
-#include "mail1.csp";
-var test = 0;
-/**Initialization**/
-InitMail() = [prohibited == YES] initProhibited -> InitCfc()
-			 [] [prohibited == NO && postageReq == YES && postagePaid == YES] initPostageSuff -> InitCfc()
-			 [] [prohibited == NO && postageReq == YES && postagePaid == NO] initPostageInSuff -> InitCfc()
-			 [] [prohibited == NO && postageReq == NO] initPostageFree -> InitCfc();
+/**Supplied inputs and comment out when not in use**/ 
+//#include "mail1.csp";
+#include "mail2.csp";
 
-InitBatch() = [MAIL_BATCH == 1] initBatch1_nohold{batch = MAIL_BATCH} -> MailChecker()
-			  [] [MAIL_BATCH  == 2] initBatch2{batch = MAIL_BATCH} -> BatchWait()
-			  [] [MAIL_BATCH == 3] initBatch3{batch = MAIL_BATCH} -> BatchWait()
-			  [] [MAIL_BATCH  == 4] initBatch4{batch = MAIL_BATCH} -> BatchWait()
-			  [] [MAIL_BATCH == 5] initBatch5{batch = MAIL_BATCH} -> BatchWait();
-			  
+/**Read supplied inputs and initialise mail properties**/
+InitMail() = {prohibited = PROHIBITED_ITEM; postageReq = POSTAGE_REQ; postagePaid = POSTAGE_SUFF; envStdColor = ENV_COLOR; 
+			envStdSize = ENV_SIZE; missedTag = MISSED_TAG; addr = ADDR_HANDWRITING; missedBarcode = MISSED_DEST;}->InitBatch();
+/**End of reading supplied inputs and initialise mail properties**/
 
-InitCfc() = [envStdSize == NO && envStdColor == NO] initBadMailStd1 -> InitBatch()
-			[] [envStdSize == NO && envStdColor == YES] initBadMailStd2 -> InitBatch()
-			[] [envStdSize == YES && envStdColor == NO] initBadMailStd3 -> InitBatch()
-			[] [envStdSize == YES && envStdColor == YES] initGoodMailStd -> InitBatch();
+InitBatch() = [MAIL_BATCH == FIRST] initBatch1_nohold{batch = MAIL_BATCH} -> MailChecker()
+			  [] [MAIL_BATCH  == SECOND] initBatch2{batch = MAIL_BATCH} -> BatchWait()
+			  [] [MAIL_BATCH == THIRD] initBatch3{batch = MAIL_BATCH} -> BatchWait()
+			  [] [MAIL_BATCH  == FOURTH] initBatch4{batch = MAIL_BATCH} -> BatchWait()
+			  [] [MAIL_BATCH == FIFTH] initBatch5{batch = MAIL_BATCH} -> BatchWait();
 				
 /**End of initialization**/
 
-
-/**Read supplied inputs**/
-Input() = {prohibited = PROHIBITED_ITEM; postageReq = POSTAGE_REQ; postagePaid = POSTAGE_SUFF; envStdColor = ENV_COLOR; envStdSize = ENV_SIZE; missedTag = MISSED_TAG;}->InitMail();
-/**End of reading inputs**/
 
 //------------START PROCESSING------------//
 
 /**Stage 1: Check batch number and determine waiting time then mail scanning for prohibited items and postage fees **/
 BatchWait() = onhold{processDur = processDur + batch - 1}->MailChecker();
 
-MailChecker() = [prohibited == YES]unsafeMail{mailDone = 0} -> Skip
-			    [] [prohibited == NO && postageReq == YES && postagePaid == YES]safe_paid_mail{processDur = processDur + PROCESS;} -> Cfc()
-				[] [prohibited == NO && postageReq == YES && postagePaid == NO]safe_unpaid_mail{processDur = processDur + PROCESS + DELAY;} -> Cfc()
-				[] [prohibited  == NO  && postageReq == NO]safe_prepaid_mail{processDur = processDur + PROCESS;} -> Cfc(); 
+MailChecker() = [prohibited == YES]mc_unsafeMail{mailOut= 0} -> Skip
+			    [] [prohibited == NO && postageReq == YES && postagePaid == YES]mc_safe_paid_mail{processDur = processDur + PROCESS;} -> Cfc()
+				[] [prohibited == NO && postageReq == YES && postagePaid == NO]mc_safe_unpaid_mail{processDur = processDur + PROCESS + DELAY;} -> Cfc()
+				[] [prohibited  == NO  && postageReq == NO]mc_safe_prepaid_mail{processDur = processDur + PROCESS;} -> Ocr(); 
 /**End of Stage 1**/
 
 /**Stage 2: Mail will go through CFC to capture address information for OCR then gives an ID-tag and the process relies on mail envelope standards **/
-
-//Cfc() = if(time < 8){[(EnvStd == 0 || EnvColor == 0) && missedTag == 0 && retFromBcs == 0]bad_mail_std{IdTag = 1; time = time + PROCESS + DELAY;} -> MpsExit()
-//		[] [(EnvStd == 0 || EnvColor == 0) && MissedTag == 1 && retFromBcs == 0]bad_mail_std_missed{IdTag = 0; time = time + PROCESS + DELAY;} -> MpsExit()
-//		[] [EnvStd == 1 && EnvColor == 1 && MissedTag == 0 && retFromBcs == 0]good_mail_std{IdTag = 1; time = time + PROCESS;}-> MpsExit()
-//		[] [EnvStd == 1 && EnvColor == 1 && MissedTag == 1 && retFromBcs == 0]good_mail_std_missed{IdTag = 0; time = time + PROCESS;}-> MpsExit()
-//		[] [missedTag == 1 && retFromBcs == 1]mail_retag{missedTag = 0; retFromBcs = 0; skipOcr = 1;} -> Cfc();
-//		};
-
-Cfc() = [(envStdSize == NO || envStdColor == NO) && missedTag == YES && retFromBcs == NO]bad_std_noTag{idTag = NO; processDur = processDur + PROCESS + DELAY;} -> MpsExit()
-		[] [(envStdSize== NO || envStdColor == NO) && missedTag == NO && retFromBcs == NO]bad_std_Tag{idTag = YES; processDur = processDur + PROCESS + DELAY;} -> MpsExit()
-		[] [envStdSize == YES && envStdColor == YES && missedTag == YES && retFromBcs == NO]good_std_noTag{idTag = NO; processDur = processDur + PROCESS;}-> MpsExit()
-		[] [envStdSize == YES && envStdColor == YES && missedTag == NO && retFromBcs == NO]good_std_Tag{idTag = YES; processDur = processDur + PROCESS;}-> MpsExit();
-//		[] [missedTag == 1 && retFromBcs == 1]mail_retag{missedTag = 0; retFromBcs = 0; skipOcr = 1;} -> Cfc();
-		
+Cfc() = [(envStdSize == NO || envStdColor == NO) && missedTag == YES && retFromBcs == NO]cfc_bad_std_noTag{idTag = NO; processDur = processDur + PROCESS + DELAY;} -> Ocr()
+		[] [(envStdSize == NO || envStdColor == NO) && missedTag == NO && retFromBcs == NO]cfc_bad_std_tag{idTag = YES; processDur = processDur + PROCESS + DELAY;} -> Ocr()
+		[] [envStdSize == YES && envStdColor == YES && missedTag == YES && retFromBcs == NO]cfc_good_std_noTag{idTag = NO; processDur = processDur + PROCESS;}-> Ocr()
+		[] [envStdSize == YES && envStdColor == YES && missedTag == NO && retFromBcs == NO]cfc_good_std_tag{idTag = YES; processDur = processDur + PROCESS;}-> Ocr()
+		[] [retFromBcs == YES]cfc_mail_retag{missedTag = NO; retFromBcs = NO; skipOcr = YES;} -> Cfc();	
 /**End of Stage 2**/
 
-MpsExit() = mail_out{mailDone = 1;} -> Skip;
+/**Stage 3: Mail will process to OCR for address reading illegible handwriting will cause delay**/
+Ocr() = [addr == YES && skipOcr == NO]ocr_good_addr{processDur = processDur + PROCESS;} -> Bcs()
+		[] [addr == NO && skipOcr == NO]ocr_bad_addr{processDur = processDur + PROCESS + DELAY;} -> Bcs()
+		[] [skipOcr == YES]ocr_completed{skipOcr = NO;} -> Bcs();
+/**End of Stage 3**/
 
-MpsStart() = Input();
+/**Stage 4: Mail will then proceed to BSC (Bar Code Sorter) to read ID-tag and print destination address**/
+Bcs() = [idTag == YES && missedBarcode == NO && retFromDbs == NO]bcs_mail_ready_barcoded{barcode = YES; processDur = processDur + PROCESS;} -> Dbs()
+		[] [idTag == NO && missedBarcode == NO && retFromDbs == NO]bcs_mail_noTag_barcoded{barcode = YES; retFromBcs = YES;}-> Cfc()
+		[] [idTag == YES && missedBarcode == YES && retFromDbs == NO]bcs_mail_ready_noBarcode{barcode = NO; processDur = processDur + PROCESS;} -> Dbs()
+		[] [idTag == NO && missedBarcode == YES && retFromDbs == NO]bcs_mail_noTag_noBarcode{barcode = NO; retFromBcs = YES;} -> Cfc()
+		[] [retFromDbs == YES]bcs_reprintBarcode{missedBarcode = NO; retFromDbs = NO;} -> Bcs();
+/**End of Stage 4**/
 
-MPS() = Input() ||| InitBatch() ||| InitMail() ||| BatchWait() ||| MailChecker() ||| Cfc();
+/**Stage 5: Mail will check for barcode printed and ready to be loaded into different containers for postman to pick up**/
+Dbs() = [barcode == YES]dbs_mail_processed_barcoded{processDur = processDur + PROCESS;} -> MpsExit()
+		[] [barcode == NO]dbs_mail_notBarcoded{retFromDbs = YES;} -> Bcs();
+
+/**End of Stage 5**/
+
+MpsExit() = [processDur <= BATCH5_GOAL]out_mps_punctual{batch = processDur - 4; mailDone = 1; mailOut = 1;} -> Skip
+			[] [processDur > BATCH5_GOAL]hold_mps_late{batch = processDur - 4; mailDone = 1; mailOut = 0;} -> Skip;
+
+MpsStart() = InitMail();
+
+MPS() = InitMail() ||| InitBatch() ||| BatchWait() ||| MailChecker() 
+			||| Cfc() ||| Ocr() ||| Bcs() ||| Dbs() ||| MpsExit();
 //------------END PROCESSING------------//
 
 
 //------------START ASSERTIONS------------//
-#assert Input() deadlockfree;
-#assert InitBatch() deadlockfree;
+#assert MpsStart() deadlockfree;
 #assert InitMail() deadlockfree;
-#assert InitCfc deadlockfree;
-#assert BatchWait deadlockfree;
-#assert MailChecker deadlockfree;
-#assert Cfc deadlockfree;
+#assert InitBatch() deadlockfree;
+#assert BatchWait() deadlockfree;
+#assert MailChecker() deadlockfree;
+#assert Cfc() deadlockfree;
+#assert Ocr() deadlockfree;
+#assert Bcs() deadlockfree;
+#assert Dbs() deadlockfree;
+#assert MpsExit() deadlockfree;
 #assert MPS() deadlockfree;
 
-#define mail1_goal (mailDone == 1);
+#assert InitMail() divergencefree;
+#assert InitBatch() deterministic;
+
+#define mail1_goal (mailOut == 1);
 #assert MpsStart reaches mail1_goal with min(processDur);
 
 //Mail entering the processing center will eventually be out for postman delivery

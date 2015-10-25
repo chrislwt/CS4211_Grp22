@@ -1,7 +1,7 @@
 ﻿/**Input Mail 1 Properties**/
 #define MAIL_BATCH 1; //1-5 indicates which batch the mail is in
 #define PROHIBITED_ITEM 0; //0 for non-prohibited item and 1 for prohibited item
-#define POSTAGE_REQ 1; //0 for non-postage mail and 1 for normal postage mail
+#define POSTAGE_REQ 0; //0 for non-postage mail and 1 for normal postage mail
 #define POSTAGE_SUFF 1; //0 for normal postage mail without sufficient fees and 1 for sufficient fees
 #define ENV_COLOR 1; //0 for not recommended envelope color and 1 for recommended color
 #define ENV_SIZE 1; //0 for not recommeneded envelope size and 1 for recommended size

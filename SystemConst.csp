@@ -3,4 +3,16 @@
 #define NO 0;
 #define DELAY 1; //every delay pressumed to be 1 hour
 #define PROCESS 1;
+
+#define FIRST 1;
+#define SECOND 2;
+#define THIRD 3;
+#define FOURTH 4;
+#define FIFTH 5;
+
+#define BATCH1_GOAL 5;
+#define BATCH2_GOAL 6;
+#define BATCH3_GOAL 7;
+#define BATCH4_GOAL 8;
+#define BATCH5_GOAL 9;
 /**End of System Constants**/
