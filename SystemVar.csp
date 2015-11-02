@@ -3,14 +3,16 @@ var batch;
 var prohibited;
 var postageReq;
 var postagePaid;
+var postageWt;
+var postageStamp;
+var postageFee;
 var envStdColor;
 var envStdSize;
+var addr;
 var missedTag;
 var missedBarcode;
-var addr;
+var addrHw;
 var processDur = 0; //in hours
-var onHold;
-var goalMet; //0 for NO and 1 for YES
 var retFromBcs;
 var retFromDbs;
 var skipOcr;
@@ -18,4 +20,7 @@ var idTag;
 var barcode;
 var mailDone = 0;
 var mailOut = 0;
+var mailPunctual = 0; 
+var msFlag = 0; 
+var cfcFlag = 0;
 /**End of System variables**/

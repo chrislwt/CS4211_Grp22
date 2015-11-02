@@ -3,19 +3,19 @@
 #include "SystemConst.csp";
 
 /**Supplied inputs and comment out when not in use**/ 
-//#include "mail1.csp";
-#include "mail2.csp";
+#include "mail1.csp";
 
 /**Read supplied inputs and initialise mail properties**/
-InitMail() = {prohibited = PROHIBITED_ITEM; postageReq = POSTAGE_REQ; postagePaid = POSTAGE_SUFF; envStdColor = ENV_COLOR; 
-			envStdSize = ENV_SIZE; missedTag = MISSED_TAG; addr = ADDR_HANDWRITING; missedBarcode = MISSED_DEST;}->InitBatch();
+InitMail() = {prohibited = PROHIBITED_ITEM; postageReq = POSTAGE_REQ; postageWt = POSTAGE_WEIGHT; postageStamp = POSTAGE_STAMP; envStdColor = ENV_COLOR; addr = ADDRESSEE;
+			envStdSize = ENV_SIZE; missedTag = MISSED_TAG; addrHw = ADDR_HANDWRITING; missedBarcode = MISSED_DEST;}->InitBatch();
 /**End of reading supplied inputs and initialise mail properties**/
 
-InitBatch() = [MAIL_BATCH == FIRST] initBatch1_nohold{batch = MAIL_BATCH} -> MailChecker()
+InitBatch() = [MAIL_BATCH == FIRST] initBatch1_nohold{batch = MAIL_BATCH} -> MailScanner()
 			  [] [MAIL_BATCH  == SECOND] initBatch2{batch = MAIL_BATCH} -> BatchWait()
 			  [] [MAIL_BATCH == THIRD] initBatch3{batch = MAIL_BATCH} -> BatchWait()
 			  [] [MAIL_BATCH  == FOURTH] initBatch4{batch = MAIL_BATCH} -> BatchWait()
-			  [] [MAIL_BATCH == FIFTH] initBatch5{batch = MAIL_BATCH} -> BatchWait();
+			  [] [MAIL_BATCH == FIFTH] initBatch5{batch = MAIL_BATCH} -> BatchWait()
+			  [] [MAIL_BATCH > FIFTH] initLateBatch{batch = MAIL_BATCH;} -> Skip;
 				
 /**End of initialization**/
 
@@ -23,25 +23,44 @@ InitBatch() = [MAIL_BATCH == FIRST] initBatch1_nohold{batch = MAIL_BATCH} -> Mai
 //------------START PROCESSING------------//
 
 /**Stage 1: Check batch number and determine waiting time then mail scanning for prohibited items and postage fees **/
-BatchWait() = onhold{processDur = processDur + batch - 1}->MailChecker();
+BatchWait() = onhold{processDur = processDur + batch - BATCH_INIT_INDEX}->MailScanner();
 
-MailChecker() = [prohibited == YES]mc_unsafeMail{mailOut= 0} -> Skip
-			    [] [prohibited == NO && postageReq == YES && postagePaid == YES]mc_safe_paid_mail{processDur = processDur + PROCESS;} -> Cfc()
-				[] [prohibited == NO && postageReq == YES && postagePaid == NO]mc_safe_unpaid_mail{processDur = processDur + PROCESS + DELAY;} -> Cfc()
-				[] [prohibited  == NO  && postageReq == NO]mc_safe_prepaid_mail{processDur = processDur + PROCESS;} -> Ocr(); 
+MailScanner() = [prohibited == YES]ms_unsafe_mail{mailOut= YES; mailDone = NO; mailPunctual = NO;} -> Skip
+			    [] [prohibited == NO && postageReq == YES]ms_safe_postpaid_mail{
+			    	if(postageWt <= WEIGHT_1) {
+						postageFee = POSTAGE_1;
+			    	} else if(postageWt <= WEIGHT_2) {
+			    		postageFee = POSTAGE_2;
+			    	} else if(postageWt <= WEIGHT_3) {
+			    		postageFee = POSTAGE_3;
+			    	} else if(postageWt <= WEIGHT_4) {
+			    		postageFee = POSTAGE_4;
+			    	} else if(postageWt <= WEIGHT_5) {
+			    		postageFee = POSTAGE_5;
+			    	} else if(postageWt <= WEIGHT_6) {
+			    		postageFee = POSTAGE_6;
+			    	} else {
+			    		postageFee = POSTAGE_7;
+			    	}
+			    } -> MailPostageCheck()
+				[] [prohibited  == NO  && postageReq == NO]ms_safe_prepaid_mail{processDur = processDur + PROCESS; idTag = YES;} -> Ocr(); 
+
+MailPostageCheck() = [postageStamp < postageFee]ms_safe_insuff_mail{postagePaid = NO; processDur = processDur + PROCESS + DELAY;} -> Cfc()
+				     [] [postageStamp >= postageFee]ms_safe_suff_mail{postagePaid = YES; processDur = processDur + PROCESS;} -> Cfc();
 /**End of Stage 1**/
 
 /**Stage 2: Mail will go through CFC to capture address information for OCR then gives an ID-tag and the process relies on mail envelope standards **/
-Cfc() = [(envStdSize == NO || envStdColor == NO) && missedTag == YES && retFromBcs == NO]cfc_bad_std_noTag{idTag = NO; processDur = processDur + PROCESS + DELAY;} -> Ocr()
-		[] [(envStdSize == NO || envStdColor == NO) && missedTag == NO && retFromBcs == NO]cfc_bad_std_tag{idTag = YES; processDur = processDur + PROCESS + DELAY;} -> Ocr()
-		[] [envStdSize == YES && envStdColor == YES && missedTag == YES && retFromBcs == NO]cfc_good_std_noTag{idTag = NO; processDur = processDur + PROCESS;}-> Ocr()
-		[] [envStdSize == YES && envStdColor == YES && missedTag == NO && retFromBcs == NO]cfc_good_std_tag{idTag = YES; processDur = processDur + PROCESS;}-> Ocr()
-		[] [retFromBcs == YES]cfc_mail_retag{missedTag = NO; retFromBcs = NO; skipOcr = YES;} -> Cfc();	
+Cfc() = [(envStdSize == NO || envStdColor == NO) && missedTag == YES && retFromBcs == NO && addr == YES]cfc_bad_std_noTag{idTag = NO; processDur = processDur + PROCESS + DELAY; cfcFlag = NO;} -> Ocr()
+		[] [(envStdSize == NO || envStdColor == NO) && missedTag == NO && retFromBcs == NO && addr == YES]cfc_bad_std_tag{idTag = YES; processDur = processDur + PROCESS + DELAY; cfcFlag = YES;} -> Ocr()
+		[] [envStdSize == YES && envStdColor == YES && missedTag == YES && retFromBcs == NO && addr == YES]cfc_good_std_noTag{idTag = NO; processDur = processDur + PROCESS; cfcFlag = NO;}-> Ocr()
+		[] [envStdSize == YES && envStdColor == YES && missedTag == NO && retFromBcs == NO && addr == YES]cfc_good_std_tag{idTag = YES; processDur = processDur + PROCESS; cfcFlag = YES;}-> Ocr()
+		[] [addr == NO]cfc_no_addr_captured{mailOut = YES; mailDone = NO; mailPunctual = NO;} -> Skip
+		[] [retFromBcs == YES]cfc_mail_retag{missedTag = NO; retFromBcs = NO; skipOcr = YES;} -> Cfc();
 /**End of Stage 2**/
 
 /**Stage 3: Mail will process to OCR for address reading illegible handwriting will cause delay**/
-Ocr() = [addr == YES && skipOcr == NO]ocr_good_addr{processDur = processDur + PROCESS;} -> Bcs()
-		[] [addr == NO && skipOcr == NO]ocr_bad_addr{processDur = processDur + PROCESS + DELAY;} -> Bcs()
+Ocr() = [addrHw == YES && skipOcr == NO]ocr_good_addr{processDur = processDur + PROCESS;} -> Bcs()
+		[] [addrHw == NO && skipOcr == NO]ocr_bad_addr{processDur = processDur + PROCESS + DELAY;} -> Bcs()
 		[] [skipOcr == YES]ocr_completed{skipOcr = NO;} -> Bcs();
 /**End of Stage 3**/
 
@@ -59,10 +78,11 @@ Dbs() = [barcode == YES]dbs_mail_processed_barcoded{processDur = processDur + PR
 
 /**End of Stage 5**/
 
-MpsExit() = [processDur <= BATCH5_GOAL]out_mps_punctual{batch = processDur - 4; mailDone = 1; mailOut = 1;} -> Skip
-			[] [processDur > BATCH5_GOAL]hold_mps_late{batch = processDur - 4; mailDone = 1; mailOut = 0;} -> Skip;
+MpsExit() = [processDur <= BATCH5_GOAL]mps_out_punctual{batch = processDur - SHORTEST_DURATION; mailDone = YES; mailOut = YES; mailPunctual = YES;} -> Skip
+			[] [processDur > BATCH5_GOAL]mps_hold_late{batch = processDur - SHORTEST_DURATION; mailDone = YES; mailOut = YES; mailPunctual = NO;} -> Skip;
 
 MpsStart() = InitMail();
+Mps() = InitMail(); MailScanner(); Cfc(); Ocr(); Bcs(); Dbs(); MpsExit();
 //------------END PROCESSING------------//
 
 
@@ -71,21 +91,31 @@ MpsStart() = InitMail();
 #assert InitMail() deadlockfree;
 #assert InitBatch() deadlockfree;
 #assert BatchWait() deadlockfree;
-#assert MailChecker() deadlockfree;
+#assert MailScanner() deadlockfree;
+#assert MailPostageCheck() deadlockfree;
 #assert Cfc() deadlockfree;
 #assert Ocr() deadlockfree;
 #assert Bcs() deadlockfree;
 #assert Dbs() deadlockfree;
 #assert MpsExit() deadlockfree;
-#assert MPS() deadlockfree;
 
-#assert InitMail() divergencefree;
-#assert InitBatch() deterministic;
+#assert Cfc() divergencefree;
+#assert Mps() divergencefree;
 
-#define mail1_goal (mailOut == 1);
-#assert MpsStart reaches mail1_goal with min(processDur);
+#define mail_processed_and_leave_goal (mailOut == YES && mailDone == YES);
+#define mail_processed_and_punctual_goal (mailOut == YES && mailDone == YES && mailPunctual == YES);
+#define mail_processed_goal(mailDone == YES);
+#define mail_leave_spc_goal(mailOut == YES);
+#define mail_cfc_done(cfcFlag == YES);
 
-//Mail entering the processing center will eventually be out for postman delivery
-#assert MpsStart |= <>mail1_goal;
+#assert MpsStart reaches mail_processed_and_leave_goal with min(processDur);
+#assert MpsStart reaches mail_processed_and_punctual_goal with min(processDur);
+#assert MpsStart reaches mail_processed_goal with min(processDur);
+#assert Cfc reaches mail_cfc_done with min(processDur);
 
+
+#assert MpsStart |= <>mail_processed_and_leave_goal;
+#assert MpsStart |= <>mail_processed_and_punctual_goal;
+#assert MpsStart |= <>mail_leave_spc_goal;
+#assert MpsStart |= <>mail_processed_goal;
 //------------END OF ASSERTIONS------------//

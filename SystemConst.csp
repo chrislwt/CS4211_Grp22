@@ -3,6 +3,7 @@
 #define NO 0;
 #define DELAY 1; //every delay pressumed to be 1 hour
 #define PROCESS 1;
+#define BATCH_INIT_INDEX 1;
 
 #define FIRST 1;
 #define SECOND 2;
@@ -10,9 +11,28 @@
 #define FOURTH 4;
 #define FIFTH 5;
 
+#define WEIGHT_1 20; //mail weight up to 20 grams
+#define WEIGHT_2 40; //mail weight up to 40 grams
+#define WEIGHT_3 100; //mail weight up to 100 grams
+#define WEIGHT_4 250; //mail weight up to 250 grams
+#define WEIGHT_5 500; //mail weight up to 500 grams
+#define WEIGHT_6 1000; //mail weight up to 1000 grams
+#define WEIGHT_7 2000; //mail weight up to 2000 grams
+
+
+#define POSTAGE_1 30; //mail weight up to 20 grams
+#define POSTAGE_2 37; //mail weight up to 40 grams
+#define POSTAGE_3 60; //mail weight up to 100 grams
+#define POSTAGE_4 90; //mail weight up to 250 grams
+#define POSTAGE_5 115; //mail weight up to 500 grams
+#define POSTAGE_6 255; //mail weight up to 1000 grams
+#define POSTAGE_7 335; //mail weight up to 2000 grams
+
 #define BATCH1_GOAL 5;
 #define BATCH2_GOAL 6;
 #define BATCH3_GOAL 7;
 #define BATCH4_GOAL 8;
 #define BATCH5_GOAL 9;
+
+#define SHORTEST_DURATION 4;
 /**End of System Constants**/
